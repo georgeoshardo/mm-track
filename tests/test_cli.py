@@ -13,7 +13,6 @@ def test_main_entrypoint(mode):
     with (
         patch("mm_track.__main__.napari.Viewer", return_value=viewer),
         patch("mm_track.__main__.napari.run"),
-        patch("mm_track.data_views.views.ortho_views.initialize_ortho_views"),
         patch("mm_track.__main__.StartupWidget") as mock_widget,
         patch.object(sys, "argv", ["prog", "--mode", mode]),
     ):

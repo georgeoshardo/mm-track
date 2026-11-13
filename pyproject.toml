@@ -49,7 +49,6 @@ dependencies =[
     "fastplotlib>=0.6.1,<0.7; platform_system != 'Emscripten'",
     "pygfx==0.15.3; platform_system != 'Emscripten'",
     "wgpu>=0.29, <0.30; platform_system != 'Emscripten'",
-    "napari-orthogonal-views>=0.4.0",
     "lxml_html_clean>=0.4,<1",
     "zarr>=2.18.7,<4",
     # Not used directly (it arrives via tracksdata), pinned to keep it co-installable

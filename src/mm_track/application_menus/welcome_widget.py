@@ -67,7 +67,7 @@ class WelcomeWidget(QWidget):
 2. **Configure Tracking**: Specify parameters in the Tracking panel and click 'Run Tracking'.
 3. **Results**: Results are added to the Tracks List. View and navigate a tracking result in the napari layers and in the Lineage View.
 4. **Edit Results**: Use the Editing & Selection panel to refine results.
-5. **Visualization options**: Use the Visualization panel to adjust display mode and to show orthogonal views.
+5. **Visualization options**: Use the Visualization panel to adjust the display mode.
 6. **Save & Load**: Save or export results in the Tracks List. To pick up where you left off, load the project from Motile Run.
 
 ### Tips

@@ -1,5 +1,3 @@
-import contextlib
-
 import napari
 from psygnal import Signal
 from qtpy.QtCore import QSignalBlocker, Qt
@@ -17,23 +15,6 @@ from qtpy.QtWidgets import (
 
 from mm_track.application_menus.visualization_widget import compact_box
 from mm_track.data_views.views_coordinator.tracks_viewer import TracksViewer
-
-# napari-orthogonal-views needs OpenCV, so it is only imported once the views
-# are opened
-
-
-def initialize_ortho_views(viewer):
-    from mm_track.data_views.views.ortho_views import (
-        initialize_ortho_views as initialize,
-    )
-
-    return initialize(viewer)
-
-
-def _viewer_managers():
-    from napari_orthogonal_views.ortho_view_manager import _VIEWER_MANAGERS
-
-    return _VIEWER_MANAGERS
 
 
 class ModeWidget(QWidget):
@@ -89,8 +70,8 @@ class ModeWidget(QWidget):
 
 class ViewModeWidget(QWidget):
     """Choose what the canvas shows: the spatial or the kymograph view, which tracks
-    are displayed (all, a lineage or a group), the orthogonal views and the help text,
-    and the image layers the kymograph is drawn from."""
+    are displayed (all, a lineage or a group), the help text, and the image layers
+    the kymograph is drawn from."""
 
     def __init__(self, viewer: napari.Viewer):
         super().__init__()
@@ -99,9 +80,6 @@ class ViewModeWidget(QWidget):
         self.tracks_viewer = TracksViewer.get_instance(viewer)
 
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
-
-        self.orth_views_connection = None
-        self.orth_view_manager = None
 
         self.tracks_viewer.mode_updated.connect(self._update_controls)
         self.tracks_viewer.view_mode_updated.connect(self._update_controls)
@@ -119,10 +97,6 @@ class ViewModeWidget(QWidget):
             [("All", "all"), ("Lineage", "lineage"), ("Group", "group")],
         )
         self.mode_widget.update_mode.connect(self._update_mode)
-
-        self.show_ortho_views = QCheckBox("Orthogonal views")
-        self.show_ortho_views.stateChanged.connect(self.initialize_ortho_views)
-        self.show_ortho_views.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
         self.show_help_text = QCheckBox("Show help text")
         self.show_help_text.setToolTip(
@@ -156,7 +130,6 @@ class ViewModeWidget(QWidget):
         view_box, view_form = compact_box("View")
         view_form.addRow(self.view_mode_widget.title, self.view_mode_widget)
         view_form.addRow(self.mode_widget.title, self.mode_widget)
-        view_form.addRow(self.show_ortho_views)
         view_form.addRow(self.show_help_text)
 
         self.kymograph_box, kymograph_form = compact_box("Kymograph")
@@ -172,59 +145,6 @@ class ViewModeWidget(QWidget):
         layout.addStretch(1)
 
         self._update_controls()
-
-    def initialize_ortho_views(self, checked: bool):
-        """Initializes the ortho views."""
-
-        if self.show_ortho_views.isChecked() != checked:
-            # sync checkbox state, since there are two ways to trigger this function (checkbox or menu action in ortho view widget)
-            self.show_ortho_views.setChecked(checked)
-        managers = _viewer_managers()
-        if self.viewer in managers:
-            self.orth_view_manager = managers[self.viewer]
-            if not checked:
-                self.orth_view_manager.hide()
-                self.orth_view_manager.set_splitter_sizes(
-                    0.0, 0.0
-                )  # minimal size for right and bottom
-            else:
-                self.orth_view_manager.show()
-        else:
-            self.orth_view_manager = initialize_ortho_views(
-                self.viewer
-            )  # store to be able to disconnect later
-            self.orth_views_connection = (
-                self.orth_view_manager.main_controls_widget.show_orth_views.connect(
-                    self.initialize_ortho_views
-                )
-            )
-            # remove connection and reset checkbox when destroyed
-            self.orth_view_manager.main_controls_widget.destroyed.connect(
-                self._on_ortho_cleanup
-            )
-            self.orth_view_manager.show()
-
-    def _on_ortho_cleanup(self):
-        """Called when ortho_view_manager cleans up and deletes its widgets."""
-        self._disconnect_ortho_views()
-        # Uncheck the checkbox without triggering initialize_ortho_views
-        self.show_ortho_views.blockSignals(True)
-        self.show_ortho_views.setChecked(False)
-        self.show_ortho_views.blockSignals(False)
-
-    def _disconnect_ortho_views(self):
-        """Safely disconnect from ortho views signals."""
-
-        if (
-            self.orth_views_connection is not None
-            and self.orth_view_manager is not None
-        ):
-            with contextlib.suppress(TypeError, RuntimeError):
-                self.orth_view_manager.main_controls_widget.show_orth_views.disconnect(
-                    self.orth_views_connection
-                )
-            self.orth_views_connection = None
-        self.orth_view_manager = None
 
     def _update_view_mode(self, mode: str) -> None:
         """Switch between the spatial and kymograph view on the TracksViewer"""

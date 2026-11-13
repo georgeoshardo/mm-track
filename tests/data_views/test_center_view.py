@@ -1,6 +1,5 @@
 """Tests for center_view functionality with different scale configurations."""
 
-import napari
 import numpy as np
 import pytest
 import tracksdata as td
@@ -8,7 +7,6 @@ from funtracks.data_model import SolutionTracks
 from funtracks.utils.tracksdata_utils import create_empty_graphview_graph
 from tracksdata.nodes._mask import Mask
 
-from mm_track.data_views.views.ortho_views import initialize_ortho_views
 from mm_track.data_views.views_coordinator.tracks_viewer import TracksViewer
 
 
@@ -313,86 +311,6 @@ class TestCenterViewWithScale:
             f"Point index {node_index} not in visible indices {visible_indices}. "
             f"Viewer dims.point={viewer.dims.point}"
         )
-
-    def test_center_view_syncs_ortho_views(self, viewer, qtbot, tmp_path):
-        """Test that center_view properly syncs ortho views so points are visible.
-
-        When center_view is called, the ortho views should also update their
-        dims.current_step so that the point is visible in all views.
-        """
-
-        # Initialize orthogonal views
-        ortho_manager = initialize_ortho_views(viewer)
-
-        # Node at world position [5, 10, 10] (box [9:11,9:11,9:11])
-        graph = _make_single_node_graph(
-            tmp_path,
-            pos=[5, 10, 10],
-            seg_bbox=[9, 9, 9, 11, 11, 11],
-            seg_shape=(2, 20, 20, 20),
-        )
-
-        scale = [1.0, 0.5, 1.0, 1.0]  # z-scale = 0.5
-        tracks = SolutionTracks(graph=graph, scale=scale, ndim=4, time_attr="t")
-
-        # Show orthogonal views BEFORE adding tracks so they get the layers
-        ortho_manager.show()
-        qtbot.waitUntil(lambda: ortho_manager.is_shown(), timeout=1000)
-
-        tracks_viewer = TracksViewer.get_instance(viewer)
-        tracks_viewer.update_tracks(tracks=tracks, name="test")
-
-        # Wait for layers to sync to ortho views
-        qtbot.wait(50)
-
-        # Get the point index for node 1 from main points layer
-        main_points_layer = tracks_viewer.tracking_layers.points_layer
-        node_index = main_points_layer.node_index_dict[1]
-
-        # Center on the node
-        tracks_viewer.tracking_layers.center_view(node=1)
-
-        # Wait for Qt event loop to process the dims sync
-        qtbot.wait(50)
-
-        # Verify main viewer point is visible
-        main_visible = main_points_layer._indices_view
-        assert node_index in main_visible, (
-            f"Point not visible in main viewer. "
-            f"Index {node_index} not in {main_visible}"
-        )
-
-        # Get ortho view points layers and verify point is visible in each
-        right_vm = ortho_manager.right_widget.vm_container.viewer_model
-        bottom_vm = ortho_manager.bottom_widget.vm_container.viewer_model
-        right_points = next(
-            layer
-            for layer in right_vm.layers
-            if isinstance(layer, napari.layers.Points)
-        )
-        bottom_points = next(
-            layer
-            for layer in bottom_vm.layers
-            if isinstance(layer, napari.layers.Points)
-        )
-
-        # The ortho views use copied Points layers (not TrackPoints), so we check
-        # _indices_view on those as well
-        right_visible = right_points._indices_view
-        bottom_visible = bottom_points._indices_view
-
-        assert node_index in right_visible, (
-            f"Point not visible in right ortho view. "
-            f"Index {node_index} not in {right_visible}. "
-            f"Ortho dims.point={right_vm.dims.point}"
-        )
-        assert node_index in bottom_visible, (
-            f"Point not visible in bottom ortho view. "
-            f"Index {node_index} not in {bottom_visible}. "
-            f"Ortho dims.point={bottom_vm.dims.point}"
-        )
-
-        ortho_manager.cleanup()
 
 
 class TestCenterViewInEditingMode:
