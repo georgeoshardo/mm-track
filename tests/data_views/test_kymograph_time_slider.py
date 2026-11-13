@@ -241,7 +241,7 @@ def test_edge_across_a_frame_gap_is_drawn(viewer, kymograph, solution_tracks_2d)
 def _assert_opening_view(viewer, layers):
     """First frame centred, a frame's height filling the canvas."""
     geometry = layers.geometry
-    canvas_height = viewer._canvas_size[0]
+    canvas_height = viewer.canvas.size[0]
     assert viewer.camera.zoom == pytest.approx(
         canvas_height / (geometry.y_size * geometry.y_scale)
     )
@@ -306,7 +306,7 @@ def test_view_changes_report_the_frames_on_screen(viewer, kymograph):
     center = list(viewer.camera.center)
     center[-1] = 2.5 * frame_width - layers.geometry.x_scale / 2  # middle of frame 2
     viewer.camera.center = tuple(center)
-    viewer.camera.zoom = viewer._canvas_size[1] / frame_width  # one frame across
+    viewer.camera.zoom = viewer.canvas.size[1] / frame_width  # one frame across
 
     low, high = reports[-1]
     assert low == pytest.approx(1.5)

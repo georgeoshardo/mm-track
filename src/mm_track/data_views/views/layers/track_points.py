@@ -34,7 +34,6 @@ if TYPE_CHECKING:
     from mm_track.data_views.views_coordinator.tracks_viewer import TracksViewer
 
 from mm_track.data_views.views.layers.cell_status import CellStatusPoints
-from mm_track.data_views.views.layers.out_of_slice_points import ZOnlyPoints
 
 
 def custom_select(layer: napari.layers.Points, event: Event):
@@ -45,7 +44,7 @@ def custom_select(layer: napari.layers.Points, event: Event):
         yield from select(layer, event)
 
 
-class TrackPoints(CellStatusPoints, ZOnlyPoints):
+class TrackPoints(CellStatusPoints, napari.layers.Points):
     """Extended points layer that holds the track information and emits and
     responds to dynamics visualization signals
     """
@@ -161,7 +160,7 @@ class TrackPoints(CellStatusPoints, ZOnlyPoints):
             value (int | None): The index of the clicked point, or None if no point
                 was clicked
             side_button (int | None): the button index (4: back, 5: forward) if a mouse side button was used, or None if no side button was used.
-            layer (napari.layers.Points | None): Optional, unused. The (ortho view) layer on which the click occurred, which is forwarded by default.
+            layer (napari.layers.Points | None): Optional, unused. The layer on which the click occurred, which is forwarded by default.
         """
 
         # Communicate that the click comes from the napari canvas
@@ -209,7 +208,7 @@ class TrackPoints(CellStatusPoints, ZOnlyPoints):
 
         track_ids = self.tracks_viewer.tracks.get_track_ids(self.nodes)
         self.data = self.tracks_viewer.tracks.get_positions(self.nodes, incl_time=True)
-        self.data_updated.emit()  # emit update signal for the orthogonal views to connect to
+        self.data_updated.emit()
 
         self.symbol = self.get_symbols(
             self.tracks_viewer.tracks, self.tracks_viewer.symbolmap
@@ -395,8 +394,7 @@ class TrackPoints(CellStatusPoints, ZOnlyPoints):
             return
 
         # Set border color and size for the selected items. Both are built up first and
-        # then assigned once, because every assignment emits an event that the orthogonal
-        # views (if present) answer by re-slicing their copy of this layer.
+        # then assigned once, because every assignment emits an event.
         border_colors = np.tile([1.0, 1.0, 1.0, 1.0], (n_points, 1))
         sizes = np.full(n_points, self.default_size)
         selected_size = math.ceil(self.default_size + 0.3 * self.default_size)
@@ -411,7 +409,6 @@ class TrackPoints(CellStatusPoints, ZOnlyPoints):
                 )
                 sizes[index] = selected_size
 
-        # size first: the orthogonal views read it when the border color event arrives
         self.size = sizes
         self.border_color = border_colors
         self.refresh()

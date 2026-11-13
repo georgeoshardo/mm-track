@@ -758,7 +758,7 @@ class KymographLayerGroup:
         zoom = float(self.viewer.camera.zoom)
         if not self.active or geometry is None or zoom <= 0:
             return None
-        canvas_width = float(getattr(self.viewer, "_canvas_size", (600, 800))[1])
+        canvas_width = float(self.viewer.canvas.size[1])
         half_width = canvas_width / zoom / 2.0
         x_center = float(self.viewer.camera.center[-1])
 
@@ -894,8 +894,7 @@ class KymographLayerGroup:
         zoom = float(self.viewer.camera.zoom)
         if zoom <= 0:
             return 0.0
-        canvas_size = getattr(self.viewer, "_canvas_size", (600, 800))
-        canvas_width = float(canvas_size[1])
+        canvas_width = float(self.viewer.canvas.size[1])
         return canvas_width / zoom / self.geometry.frame_world_width / 2.0
 
     def show_timepoint(self, timepoint: int) -> None:
@@ -952,7 +951,7 @@ class KymographLayerGroup:
         geometry = self.geometry
         if self.page_start != 0:
             self.set_page(page_start=0)
-        canvas_height = float(getattr(self.viewer, "_canvas_size", (0, 0))[0])
+        canvas_height = float(self.viewer.canvas.size[0])
         frame_height = geometry.y_size * geometry.y_scale
         if canvas_height > 0 and frame_height > 0:
             self.viewer.camera.zoom = canvas_height / frame_height

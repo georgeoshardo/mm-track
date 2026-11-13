@@ -17,6 +17,32 @@ from scipy import ndimage as ndi
 from mm_track.data_views.lazy_array_wrapper import LazyArrayWrapper
 
 
+def paint_atom_indices(atom) -> tuple[tuple[np.ndarray, ...], np.ndarray, int]:
+    """A Labels history atom as ``(indices, old_values, new_value)``.
+
+    napari records an edit made by paint, fill or polygon as a bounding box with a
+    mask of the changed pixels (``slice_key``, ``mask``, ``old_values``,
+    ``new_value``; ``mask`` is None when every pixel in the box changed). Edits made
+    through ``data_setitem`` are already a numpy multi-index, the values before and
+    the value after. Both come back as the latter, so callers handle one form.
+    """
+    slice_key = getattr(atom, "slice_key", None)
+    if slice_key is None:
+        return atom
+    if atom.mask is None:
+        old_values = np.asarray(atom.old_values)
+        local = np.indices(old_values.shape).reshape(old_values.ndim, -1)
+        old_values = old_values.reshape(-1)
+    else:
+        local = np.nonzero(atom.mask)
+        old_values = np.asarray(atom.old_values)
+    starts = [s.start or 0 for s in slice_key]
+    indices = tuple(
+        np.asarray(axis) + start for axis, start in zip(local, starts, strict=True)
+    )
+    return indices, old_values, atom.new_value
+
+
 def left_only_draw(layer, event):
     if event.button != 1:
         return  # skip non‑left
@@ -253,6 +279,74 @@ class ContourLabels(napari.layers.Labels):
             return
         super().data_setitem(indices, value, refresh)
 
+    def _paint_region_with_mask(
+        self,
+        slice_key,
+        mask,
+        new_label,
+        dims_to_paint,
+        refresh=True,
+        region_data=None,
+    ):
+        """Paint a masked region, as napari does, without writing to read-only data.
+
+        For read-only data (e.g. GraphArrayView) the edit is recorded in the history,
+        which fires events.paint (at once, or when a brush stroke ends), and shown in
+        the display buffer; the tracks take the change from the paint event. Writable
+        arrays (numpy) are painted by napari as usual.
+        """
+        if hasattr(self.data, "__setitem__"):
+            super()._paint_region_with_mask(
+                slice_key, mask, new_label, dims_to_paint, refresh, region_data
+            )
+            return
+        extra_axes = tuple(dim for dim in range(self.ndim) if dim not in dims_to_paint)
+        if extra_axes:
+            mask = np.expand_dims(mask, extra_axes)
+            if region_data is not None:
+                region_data = np.expand_dims(region_data, extra_axes)
+        # a copy: napari edits the region in place
+        region_data = np.array(
+            self.data[slice_key] if region_data is None else region_data
+        )
+        effective_mask = self._apply_mask_to_data(
+            region_data, mask, new_label, slice_key
+        )
+        if effective_mask is None:
+            return
+        self._refresh_caches_from_region(
+            region_data, slice_key, effective_mask, new_label
+        )
+        self._accumulate_updated_slice(slice_key)
+        if refresh:
+            self._partial_labels_refresh()
+
+    def _restore_display(self, atoms) -> None:
+        """Put the values before the edits ``atoms`` back into the display buffer,
+        last edit first."""
+        pt_not_disp = self._get_pt_not_disp()
+        for atom in reversed(list(atoms)):
+            indices, old_values, _new_value = paint_atom_indices(atom)
+            displayed_indices = index_in_slice(
+                indices, pt_not_disp, self._slice.slice_input.order
+            )
+            if isinstance(old_values, np.ndarray):
+                vis_vals = old_values[elements_in_slice(indices, pt_not_disp)]
+            else:
+                vis_vals = np.intp(old_values)
+            self._slice.image.raw[displayed_indices] = vis_vals
+
+    def _abort_stroke(self) -> None:
+        """Discard an unfinished brush stroke; for read-only data, only from the
+        display buffer, since the tracks haven't seen it."""
+        if hasattr(self.data, "__setitem__"):
+            super()._abort_stroke()
+            return
+        self._restore_display(self._staged_history)
+        self._staged_history = []
+        self._block_history = False
+        self.refresh()
+
     def undo(self):
         """Override undo for read-only data (e.g. GraphArrayView).
 
@@ -268,25 +362,15 @@ class ContourLabels(napari.layers.Labels):
         emitting any paint event.
 
         This method is called (via super().undo()) from TrackLabels in three
-        situations: reverting a failed paint on the main layer, reverting a
-        failed paint on an ortho-view copy of the layer, and rolling back an
-        invalid action inside _on_paint error handling.
+        situations: reverting a failed paint, reverting a failed kymograph
+        stroke, and rolling back an invalid action inside _on_paint error handling.
         """
         if not hasattr(self.data, "__setitem__"):
             if not self._undo_history:
                 return
             item = self._undo_history.pop()
             self._redo_history.append(item)
-            pt_not_disp = self._get_pt_not_disp()
-            for indices, old_values, _new_value in item:
-                displayed_indices = index_in_slice(
-                    indices, pt_not_disp, self._slice.slice_input.order
-                )
-                if isinstance(old_values, np.ndarray):
-                    vis_vals = old_values[elements_in_slice(indices, pt_not_disp)]
-                else:
-                    vis_vals = np.intp(old_values)
-                self._slice.image.raw[displayed_indices] = vis_vals
+            self._restore_display(item)
             self.refresh()
         else:
             super().undo()

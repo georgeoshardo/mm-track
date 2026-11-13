@@ -58,7 +58,7 @@ def _make_single_node_graph(
 def viewer(make_napari_viewer):
     """Per-test viewer for center_view tests.
 
-    These tests check viewer.dims.point and _indices_view, which depend on
+    These tests check viewer.dims.point and _view_indices, which depend on
     viewer.dims.current_step. Napari does not reset current_step when layers
     are cleared, so a fresh viewer per test is required for isolation.
     """
@@ -109,8 +109,8 @@ class TestCenterViewWithScale:
         new_point = viewer.dims.point
         assert abs(new_point[1] - 5) < 1, f"Expected world z≈5, got {new_point[1]}"
 
-        # Verify point is visible using _indices_view
-        visible_indices = points_layer._indices_view
+        # Verify point is visible using _view_indices
+        visible_indices = points_layer._view_indices
         assert node_index in visible_indices, (
             f"Point index {node_index} not in visible indices {visible_indices}. "
             f"Viewer dims.point={viewer.dims.point}"
@@ -147,8 +147,8 @@ class TestCenterViewWithScale:
         new_point = viewer.dims.point
         assert abs(new_point[1] - 10) < 1, f"Expected world z≈10, got {new_point[1]}"
 
-        # Verify point is visible using _indices_view
-        visible_indices = points_layer._indices_view
+        # Verify point is visible using _view_indices
+        visible_indices = points_layer._view_indices
         assert node_index in visible_indices, (
             f"Point index {node_index} not in visible indices {visible_indices}. "
             f"Viewer dims.point={viewer.dims.point}"
@@ -189,8 +189,8 @@ class TestCenterViewWithScale:
         new_point = viewer.dims.point
         assert abs(new_point[1] - 5) < 1, f"Expected world z≈5, got {new_point[1]}"
 
-        # Verify point is visible using _indices_view
-        visible_indices = points_layer._indices_view
+        # Verify point is visible using _view_indices
+        visible_indices = points_layer._view_indices
         assert node_index in visible_indices, (
             f"Point index {node_index} not in visible indices {visible_indices}. "
             f"Viewer dims.point={viewer.dims.point}"
@@ -224,8 +224,8 @@ class TestCenterViewWithScale:
         assert new_point[2] == 10  # y
         assert new_point[3] == 10  # x
 
-        # Verify point is visible using _indices_view
-        visible_indices = points_layer._indices_view
+        # Verify point is visible using _view_indices
+        visible_indices = points_layer._view_indices
         assert node_index in visible_indices, (
             f"Point index {node_index} not in visible indices {visible_indices}. "
             f"Viewer dims.point={viewer.dims.point}"
@@ -263,8 +263,8 @@ class TestCenterViewWithScale:
         new_point = viewer.dims.point
         assert abs(new_point[1] - 5) < 1, f"Expected world z≈5, got {new_point[1]}"
 
-        # Verify point is visible using _indices_view
-        visible_indices = points_layer._indices_view
+        # Verify point is visible using _view_indices
+        visible_indices = points_layer._view_indices
         assert node_index in visible_indices, (
             f"Point index {node_index} not in visible indices {visible_indices}. "
             f"Viewer dims.point={viewer.dims.point}"
@@ -305,8 +305,8 @@ class TestCenterViewWithScale:
         new_point = viewer.dims.point
         assert abs(new_point[1] - 5) < 1, f"Expected world z≈5, got {new_point[1]}"
 
-        # Verify point is visible using _indices_view
-        visible_indices = points_layer._indices_view
+        # Verify point is visible using _view_indices
+        visible_indices = points_layer._view_indices
         assert node_index in visible_indices, (
             f"Point index {node_index} not in visible indices {visible_indices}. "
             f"Viewer dims.point={viewer.dims.point}"

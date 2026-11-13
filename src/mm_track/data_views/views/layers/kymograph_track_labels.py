@@ -13,6 +13,7 @@ from mm_track.data_views.views.kymograph_utils import (
     KymographGeometry,
     concat_time_to_kymograph,
 )
+from mm_track.data_views.views.layers.contour_labels import paint_atom_indices
 from mm_track.data_views.views.layers.track_labels import TrackLabels
 from mm_track.data_views.views_coordinator.user_dialogs import (
     confirm_force_operation,
@@ -164,6 +165,7 @@ class KymographTrackLabels(TrackLabels):
         self,
         event_val,
     ) -> dict[int, list[tuple[tuple[np.ndarray, ...], int]]]:
+        event_val = [paint_atom_indices(atom) for atom in event_val]
         concatenated_indices = tuple(
             np.concatenate([ev[0][dim] for ev in event_val]) for dim in range(2)
         )

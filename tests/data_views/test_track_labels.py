@@ -356,8 +356,8 @@ def test_undo_on_readonly_data_does_not_fire_paint_event(
 
     Before the fix, undo() fell through to Labels.undo() which called
     data_setitem(), which in turn fired events.paint for read-only (GraphArrayView)
-    data.  In the ortho-view scenario that paint event triggered a recursive revert
-    producing a TypeError.  The fix overrides undo() to restore the display buffer
+    data.  Where a paint event triggered the revert, that event caused a recursive
+    revert producing a TypeError.  The fix overrides undo() to restore the display buffer
     directly without emitting any paint event.
     """
     tracks_viewer = TracksViewer.get_instance(viewer)
