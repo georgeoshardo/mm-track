@@ -96,30 +96,49 @@ class StartupWidget(QWidget):
             widgets = {mode: MENU_WIDGETS[mode]}
             active_tab = mode
 
+        # The full app's docks are placed by arrange_default_layout, so they are
+        # docked untabbed (see MenuManager.initialize_menu). It only arranges docks
+        # it has just added: menus already docked, by an earlier group of menus, stay
+        # in the tabs they are in, and the new ones join them.
+        docked = {
+            name
+            for name in widgets
+            if self.menu_manager._find_dock_widget_by_name(name) is not None
+        }
+        arrange = {LINEAGE_VIEW, EDITING} <= set(widgets) - docked
         for name, config in widgets.items():
-            self.menu_manager.initialize_menu({name: config})
+            self.menu_manager.initialize_menu({name: config}, tabify=not arrange)
 
         # make sure the active tab (Kymograph Data, in the full app) is in front.
-        QTimer.singleShot(0, lambda: self._finalize_ui(active_tab, list(widgets)))
+        QTimer.singleShot(
+            0, lambda: self._finalize_ui(active_tab, list(widgets), arrange)
+        )
 
         # Now safely remove the widget, since everything we need is docked
         QTimer.singleShot(0, self._remove_self)
 
-    def _finalize_ui(self, active_tab: str, menu_names: list[str]) -> None:
+    def _finalize_ui(
+        self, active_tab: str, menu_names: list[str], arrange: bool
+    ) -> None:
         """Set the active foreground tab, and move tabbar to the top. With both the
         lineage tree and the editing menu, arrange the docks in the default layout
         (see MenuManager.arrange_default_layout).
         Args:
             active_tab (str): name of the tab to be set to the foreground (active).
             menu_names (list[str]): the menus this widget opened.
+            arrange (bool): whether to arrange them in the default layout.
         """
+        if not hasattr(self.viewer.window, "_qt_window"):
+            return  # napari was closed before this ran
         self.menu_manager.set_tabbar_location(location="North")
-        if {LINEAGE_VIEW, EDITING} <= set(menu_names):
+        if arrange:
             self.menu_manager.arrange_default_layout(menu_names)
         self.menu_manager.set_foreground_tabs([active_tab])
 
     def _remove_self(self) -> None:
         """Remove the widget from the napari viewer.window.dock_widgets"""
+        if not hasattr(self.viewer.window, "_qt_window"):
+            return  # napari was closed before this ran
         with contextlib.suppress(LookupError):
             self.viewer.window.remove_dock_widget(self)
 

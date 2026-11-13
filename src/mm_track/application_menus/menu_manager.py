@@ -37,9 +37,17 @@ class MenuManager:
         # name -> the scroll wrapper we docked, so we can destroy it again
         self.menu_widgets: dict[str, QScrollArea] = {}
 
-    def initialize_menu(self, menu: dict[str, dict[str, Any]]) -> None:
+    def initialize_menu(
+        self, menu: dict[str, dict[str, Any]], tabify: bool = True
+    ) -> None:
         """Initialize the menu by creating and adding the specified widgets, with robust
-        handling for closed/deleted dock widgets."""
+        handling for closed/deleted dock widgets.
+
+        With ``tabify=False`` the docks are added side by side, for
+        arrange_default_layout to place: on Qt 6, moving docks out of the tab group
+        napari put them in leaves the main window's layout pointing at a deleted
+        widget, and napari crashes when it closes.
+        """
 
         self.hidden = False  # reset hidden state when initializing a new menu
         for name, config in menu.items():
@@ -63,7 +71,7 @@ class MenuManager:
                 widget = widget_cls(self.viewer)
                 scroll_wrapper = self._create_scroll_wrapper(widget)
                 dock_widget = self.viewer.window.add_dock_widget(
-                    scroll_wrapper, area=location, name=name, tabify=True
+                    scroll_wrapper, area=location, name=name, tabify=tabify
                 )
                 self.initialized_menu_widgets.add(name)
                 self.visible_menus.add(name)
