@@ -686,6 +686,10 @@ class TreePlot(QWidget):
     def _rebuild(self) -> None:
         """Full rebuild of the scene from ``self.track_df``. Only called when the
         data or view direction changes — not on selection."""
+        # the band's fill is raw pygfx, which _subplot.clear() leaves in the scene:
+        # remove it here, or every rebuild leaves the old one drawn behind the tree
+        if self._band_fill is not None and self._band_fill.parent is not None:
+            self._band_fill.parent.remove(self._band_fill)
         self._subplot.clear()
         self._scatter = None
         self._edges = None

@@ -103,6 +103,24 @@ def test_tree_plot_data_display(viewer, solution_tracks_2d):
     assert tree_plot.view_direction == "horizontal"
 
 
+@fastplotlib_only
+def test_rebuild_keeps_a_single_view_band(viewer, solution_tracks_2d):
+    """The band over the kymograph's frames is raw pygfx, which _subplot.clear()
+    doesn't remove; each rebuild must drop the old one, not leave it drawn."""
+    import pygfx as gfx
+
+    tracks_viewer = TracksViewer.get_instance(viewer)
+    tracks_viewer.update_tracks(tracks=solution_tracks_2d, name="test")
+    tree_plot = TreeWidget(viewer).tree_widget
+    tree_plot.set_time_marks((0.5, 2.5), 1)
+
+    for _ in range(3):  # a full rebuild, as each edit does
+        tree_plot.update(tree_plot.track_df, "horizontal", "tree", None, [])
+
+    bands = [c for c in tree_plot._subplot.scene.children if type(c) is gfx.Mesh]
+    assert bands == [tree_plot._band_fill]
+
+
 def test_tree_plot_selection(viewer, solution_tracks_2d):
     """Test set_selection with empty list and rectangle (box) selection signal."""
     tracks_viewer = TracksViewer.get_instance(viewer)
