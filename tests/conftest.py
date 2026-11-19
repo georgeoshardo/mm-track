@@ -37,6 +37,31 @@ def isolated_autosave_storage(tmp_path, monkeypatch):
         widget.close_sessions()
 
 
+class ModalDialogInTest(AssertionError):
+    """A test reached a modal message box that nobody can answer."""
+
+
+@pytest.fixture(autouse=True)
+def fail_on_modal_message_box(monkeypatch):
+    """Make QMessageBox's static dialogs raise instead of blocking.
+
+    A modal dialog waits for a click that never comes, so a test that reaches one
+    hangs until the timeout kills it. Raising with the dialog's text fails the test
+    at once and says why. Tests that expect a dialog patch these themselves.
+    """
+    from qtpy.QtWidgets import QMessageBox
+
+    def refuse(kind):
+        def show(*args, **kwargs):
+            text = " / ".join(str(arg) for arg in args[1:3])
+            raise ModalDialogInTest(f"QMessageBox.{kind} opened: {text}")
+
+        return show
+
+    for kind in ("critical", "warning", "information", "question", "about"):
+        monkeypatch.setattr(QMessageBox, kind, refuse(kind))
+
+
 @pytest.fixture
 def click_node():
     """Return a helper that selects a node by simulating a layer click.
