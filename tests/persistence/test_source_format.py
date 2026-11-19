@@ -59,12 +59,14 @@ STORED_ORDER = [6, 2, 0, 9, 4, 1, 12, 8, 5, 11, 3]  # not in id order, like the 
 COLUMNS = (3, 9)
 
 
-def _array(path, data, chunks=None, zarr_format=2):
+def _array(path, data, chunks=None, zarr_format=2, sharded=False):
     if zarr_format == 3:
+        whole = tuple(max(1, s) for s in data.shape)
         array = zarr.create_array(
             store=str(path),
             shape=data.shape,
-            chunks=chunks or tuple(max(1, s) for s in data.shape),
+            chunks=chunks or whole,
+            shards=whole if sharded else None,
             dtype=data.dtype,
             zarr_format=3,
             compressors=zarr.codecs.ZstdCodec(level=0, checksum=False),
@@ -121,13 +123,14 @@ def write_trench(
     raw: bool = False,
     zarr_format: int = 2,
     nan_scores: bool = False,
+    sharded: bool = False,
 ):
     """A trench in the archive's layout, or with ``raw`` in the layout of the raw
     Trackastra export: 32-bit time, label and positions, node and link
     ``weight`` properties, another property order, its own ``extra``, no
     ``axis_types`` on the arrays, and a ``_COMPLETE.json`` export marker.
     ``nan_scores`` adds a link ``score`` that is NaN throughout, as a tracker that
-    scores nothing writes it."""
+    scores nothing writes it. ``sharded`` stores each zarr v3 array as one shard."""
     group.mkdir(parents=True)
     (group / "zarr.json").write_text(
         json.dumps({"attributes": {}, "zarr_format": 3, "node_type": "group"}, indent=2)
@@ -208,16 +211,16 @@ def write_trench(
         extra = {
             "selected_cleanliness_export": {"trench_id": 1, "after_continuity_count": 3}
         }
-    _array(geff / "nodes/ids", ids, zarr_format=zarr_format)
+    _array(geff / "nodes/ids", ids, zarr_format=zarr_format, sharded=sharded)
     for name, values in props.items():
         _group(geff / "nodes/props" / name, zarr_format)
-        _array(geff / "nodes/props" / name / "values", values, zarr_format=zarr_format)
+        _array(geff / "nodes/props" / name / "values", values, zarr_format=zarr_format, sharded=sharded)
     _array(
-        geff / "edges/ids", np.asarray(LINKS, dtype=np.uint64), zarr_format=zarr_format
+        geff / "edges/ids", np.asarray(LINKS, dtype=np.uint64), zarr_format=zarr_format, sharded=sharded
     )
     for name, values in edge_props.items():
         _group(geff / "edges/props" / name, zarr_format)
-        _array(geff / "edges/props" / name / "values", values, zarr_format=zarr_format)
+        _array(geff / "edges/props" / name / "values", values, zarr_format=zarr_format, sharded=sharded)
     meta = {
         "geff": {
             "geff_version": "1.1",
@@ -1038,3 +1041,47 @@ def test_export_includes_datasets_without_history(mixed_store, tmp_path):
     assert {row["dataset"] for row in rows} == {"trench_a", "trench_b", "trench_c"}
     for trench in ("trench_a", "trench_b", "trench_c"):
         validate(tmp_path / "out.zarr" / trench / "tracking_graph.geff")
+
+
+@pytest.mark.parametrize("length", [3, 9])
+def test_sharded_whole_array_follows_a_new_length(tmp_path, length):
+    """A whole-array shard keeps one inner chunk the size of the shard, so the
+    inner chunk must resize with it when an edit adds or removes nodes."""
+    original = zarr.create_array(
+        store=str(tmp_path / "template"),
+        shape=(6,),
+        chunks=(6,),
+        shards=(6,),
+        dtype="int64",
+        zarr_format=3,
+    )
+    original[...] = np.arange(6)
+    template = {"zarr_json": json.loads((tmp_path / "template/zarr.json").read_text())}
+
+    data = np.arange(length)
+    sf._write_array(tmp_path / "rewritten", data, template)
+
+    written = zarr.open_array(str(tmp_path / "rewritten"), mode="r")
+    assert written[:].tolist() == data.tolist()
+    assert written.shards == (length,)
+    assert written.chunks == (length,)
+
+
+def test_deleting_a_node_from_a_sharded_dataset_publishes(tmp_path):
+    geff = write_trench(
+        tmp_path / "store" / "trench_a",
+        break_tracklet=False,
+        zarr_format=3,
+        sharded=True,
+    )
+    session, tracks = open_for_editing(geff, tmp_path)
+
+    UserDeleteNode(tracks, internal(4))
+    session.flush()
+
+    assert session.error is None
+    assert session.rejected is None
+    ids = zarr.open_array(str(geff / "nodes/ids"), mode="r")
+    assert 4 not in ids[:].tolist()
+    assert ids.shards == ids.shape
+    session.close()

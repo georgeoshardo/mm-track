@@ -704,6 +704,25 @@ def build(tracks, fmt) -> dict:
     }
 
 
+def _shard_chunk_shapes(meta):
+    """The inner chunk shapes of a zarr v3 array's sharding codecs, as the lists
+    in `meta` itself, so changing them changes the metadata."""
+    return [
+        codec["configuration"]["chunk_shape"]
+        for codec in meta.get("codecs", [])
+        if codec.get("name") == "sharding_indexed"
+    ]
+
+
+def _unsized(meta):
+    """Array metadata without the inner chunk shapes of its sharding codecs,
+    which follow the data's length like the shape and the outer chunks."""
+    meta = json.loads(json.dumps(meta))
+    for inner in _shard_chunk_shapes(meta):
+        inner.clear()
+    return meta
+
+
 def _template_chunks(template, shape):
     if list(template["chunks"]) == list(template["shape"]):
         return tuple(max(1, s) for s in shape)
@@ -758,12 +777,22 @@ def _write_array_v3(path: Path, data: np.ndarray, template: dict) -> None:
     meta = json.loads(json.dumps(template["zarr_json"]))
     grid = meta["chunk_grid"]["configuration"]
     template_shape = list(meta["shape"])
+    template_chunks = list(grid["chunk_shape"])
     meta["shape"] = list(data.shape)
     grid["chunk_shape"] = list(
         _template_chunks(
-            {"chunks": grid["chunk_shape"], "shape": template_shape}, data.shape
+            {"chunks": template_chunks, "shape": template_shape}, data.shape
         )
     )
+    # A shard (the outer chunk) must be a whole number of inner chunks. An
+    # inner chunk as long as the shard follows the shard's new length.
+    for inner in _shard_chunk_shapes(meta):
+        inner[:] = [
+            new if old == outer else old
+            for old, outer, new in zip(
+                inner, template_chunks, grid["chunk_shape"], strict=True
+            )
+        ]
     text = template.get("zarr_json_text")
     style = _json_style(text) if text is not None else {"indent": 2, "newline": ""}
     if text is None or json.loads(text) != meta:
@@ -781,6 +810,8 @@ def _missing_template(values_template: dict) -> dict:
         meta["shape"] = meta["shape"][:1]
         grid = meta["chunk_grid"]["configuration"]
         grid["chunk_shape"] = grid["chunk_shape"][:1]
+        for inner in _shard_chunk_shapes(meta):
+            del inner[1:]
         # a one-byte type has no byte order; keep the compressors
         meta["codecs"] = [
             {"name": "bytes"} if codec.get("name") == "bytes" else codec
@@ -979,7 +1010,8 @@ def check(geff_dir, labels_dir, fmt, content, *, drop_extra=False) -> list[str]:
         if meta is None:
             problems.append(f"array {rel} missing")
             continue
-        for key, value in _array_meta(template).items():
+        meta, expected = _unsized(meta), _unsized(_array_meta(template))
+        for key, value in expected.items():
             if key not in sized and meta.get(key) != value:
                 problems.append(f"array {rel}: {key} {meta.get(key)!r} != {value!r}")
     for rel in written:
