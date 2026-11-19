@@ -1,12 +1,10 @@
 # mm-track
 
-mm-track is a napari plugin for curating cell lineages in mother machine trenches.
-You open a trench's tracking results as a kymograph beside its lineage tree, fix the
-mistakes, and mark the trench reviewed when you're done with it.
+A napari plugin for viewing, curating, and fixing cell tracking data in mother machine trenches.
 
 It began as a fork of [Motile Tracker](https://github.com/funkelab/motile_tracker),
 now [napari-track-edit](https://github.com/live-image-tracking-tools/napari-track-edit).
-mm-track is bult for mother machine views and a curation workflow built
+mm-track is built for mother machine views and a curation workflow built
 around [GEFF](https://github.com/live-image-tracking-tools/geff) files.
 
 ![mm-track with a trench loaded: the lineage tree on the left, the kymograph on the right and the menus along the bottom](assets/mm_track_window.png)
