@@ -1,7 +1,7 @@
 # https://just.systems
 
-test:
-    uv run pytest .
+test *args:
+    uv run pytest -n auto . {{args}}
 
 start:
     uv run --extra gurobipy13 mm_track

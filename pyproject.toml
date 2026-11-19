@@ -89,6 +89,8 @@ testing =[
     "pytest-cov>=6",
     "pytest-qt>=4.4,<5",
     "pytest-benchmark>=5,<6",
+    "pytest-timeout>=2.3,<3",
+    "pytest-xdist>=3.6,<4",
 ]
 docs = [
     "myst-parser>=4,<5",
@@ -119,6 +121,10 @@ conflicts = [
 # Benchmarks are slow and run in a dedicated CI job; exclude them from the normal
 # test suite (`just test` / `pytest .`). Run with `pytest tests/benchmarks -o addopts=`.
 addopts = "--ignore=tests/benchmarks"
+# Fail a test that hangs, with a stack dump naming it, instead of freezing the
+# whole run. The thread method also works under xdist and on Windows.
+timeout = 300
+timeout_method = "thread"
 # Benchmark modules are named bench_*.py; collect those in addition to test_*.py so
 # that pointing pytest at the tests/benchmarks directory discovers them.
 python_files = ["test_*.py", "bench_*.py"]
