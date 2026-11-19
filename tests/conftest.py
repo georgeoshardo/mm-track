@@ -1,3 +1,13 @@
+import os
+import sys
+
+# With no display (an SSH shell, an agent), Qt aborts before any test runs. Fall
+# back to the offscreen platform there; CI and desktops keep their real display.
+if sys.platform.startswith("linux") and not (
+    os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")
+):
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
 import numpy as np
 import pytest
 import tracksdata as td
