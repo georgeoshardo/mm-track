@@ -1,75 +1,70 @@
-# Motile Tracker
+# mm-track
 
-[![tests](https://github.com/funkelab/motile_tracker/workflows/tests/badge.svg)](https://github.com/funkelab/motile_tracker/actions)
-[![codecov](https://codecov.io/gh/funkelab/motile_tracker/branch/main/graph/badge.svg)](https://codecov.io/gh/funkelab/motile_tracker)
+mm-track is a napari plugin for curating cell lineages in mother machine trenches.
+You open a trench's tracking results as a kymograph beside its lineage tree, fix the
+mistakes, and mark the trench reviewed when you're done with it.
 
+It began as a fork of [Motile Tracker](https://github.com/funkelab/motile_tracker),
+now [napari-track-edit](https://github.com/live-image-tracking-tools/napari-track-edit).
+mm-track is bult for mother machine views and a curation workflow built
+around [GEFF](https://github.com/live-image-tracking-tools/geff) files.
 
-An application for interactive tracking with [motile](https://github.com/funkelab/motile).
-The full documentation of the plugin can be found [here](https://funkelab.github.io/motile_tracker/).
+![mm-track with a trench loaded: the lineage tree on the left, the kymograph on the right and the menus along the bottom](assets/mm_track_window.png)
 
-Motile is a library that makes it easy to solve tracking problems using optimization
-by framing the task as an Integer Linear Program (ILP).
-See the motile [documentation](https://funkelab.github.io/motile)
-for more details on the concepts and method.
+## What mm-track adds
 
-----------------------------------
+- A kymograph view shows a trench's frames side by side with the tracks drawn over
+  them. It lists every channel of the trench image and can draw other image layers
+  on top.
+- The lineage tree is laid out in trench order, with time running left to right by
+  default. It follows the kymograph along time and shades the frames the kymograph
+  is showing. Shift+drag selects the nodes in a box, in the tree and in the
+  kymograph.
+- Given a zarr store with one GEFF group per trench, each holding its image and
+  segmentation, you step through the trenches one at a time.
+- You can split a cell in two or merge nodes into one, each as a single undo step,
+  and merge a cell's pieces across several frames at once.
+- Edits go straight to the GEFF, with an edit history kept beside it, so you can
+  close napari and pick up where you left off.
+
+![Part of a trench in the kymograph, with tracks and divisions drawn over the masks](assets/mm_track_kymograph.png)
 
 ## Installation
 
-Users can download and install an executable application from the github release, or
-install from `pypi` in the environment of their choice (e.g. `venv`, `conda`) with the command
-`pip install motile-tracker`.
-Currently, the motile_tracker requires python >=3.11.
-
-### Recommended extras
-
-For better performance, you can install optional extras:
-
-- **numba**: Speeds up candidate graph construction significantly.
-  ```bash
-  pip install motile-tracker[numba]
-  ```
-
-- **gurobi**: Uses the Gurobi solver instead of the default open-source solver. Gurobi is
-  much faster but requires a license (free for academics).
-  ```bash
-  pip install motile-tracker[gurobi]
-  ```
-
-You can install multiple extras at once: `pip install motile-tracker[numba,gurobi]`
-
-### Gurobi license version mismatch
-
-If you have a Gurobi license and encounter an error about license version mismatch,
-you may need to install a specific version of `gurobipy` that matches your license.
-Use one of the version-specific extras:
+mm-track needs Python 3.11 or later.
 
 ```bash
-pip install motile-tracker[gurobi12]  # For Gurobi 12.x licenses
-pip install motile-tracker[gurobi13]  # For Gurobi 13.x licenses
+pip install "mm-track @ git+https://github.com/georgeoshardo/mm-track"
 ```
-
-Developers can clone the GitHub repository and then  use `uv` to install and run the code.
-See the developer guide in `DEVELOPER.md` for more information.
 
 ## Usage
 
-Start napari and call the main widget via Plugins > Motile > Motile Main Widget.
-2D+time and 3D+time sample data can be loaded via File > Open Sample > Motile. You can
-track objects in napari Labels or Points layers. For details, please read the
-[documentation](https://funkelab.github.io/motile_tracker/).
+Start mm-track on a store of GEFF groups:
 
-![motile_tracker_quick_demo](https://github.com/user-attachments/assets/07a4a954-3d2d-4d67-8f75-aec11ee14697)
+```bash
+mm_track --data experiment.zarr
+```
 
-If you are new to using motile-tracker, you can follow this [tutorial](./assets/motile-tracker_tutorial.pdf) to learn the basics.
+This opens napari with all the menus and the lineage tree, and loads the first
+trench into the kymograph. The options are:
 
-## Package the application into an executable and create the installer
+| Option | What it does |
+| --- | --- |
+| `--data STORE` | Zarr store holding GEFF groups with their images and segmentations |
+| `--group NAME` | Group to load instead of the first, e.g. `trench_0396` |
+| `--run NAME` | For a PyMMM experiment: the tracking run to list (default: the first recorded) |
+| `--spatial` | Show the data in the spatial view instead of the kymograph |
+| `--mode {all,tracking,editing}` | Which widgets to open (default: `all`) |
 
-Tagging any branch will automatically trigger the deploy.yml workflow,
-which pushes the tagged version to PyPi and creates a github release; draft release if the tag contains "-dev", pre-release if the tag contains "-rc' or a full release otherwise. In case of a draft or pre release, when the user updates the release notes and promotes it to a published release, github will trigger `make_bundle_app.yml` workflow which will create the Linux, Mac and Windows installer and will upload them as release artifacts to github.
+From inside napari, open everything with Plugins > mm_track > Open all widgets, then
+pick a store in the Kymograph Data menu.
 
-## Issues
+The lineage tree is drawn on the GPU with fastplotlib. Where that can't run, it falls
+back to pyqtgraph; set `MM_TRACK_TREE_BACKEND=pyqtgraph` to use pyqtgraph anyway.
 
-If you encounter any problems, please
-[file an issue](https://github.com/funkelab/motile_tracker/issues)
-along with a detailed description.
+The documentation in [docs](docs/source) is still Motile Tracker's. It covers the
+tracking and editing that mm-track inherited, but not the mother machine features.
+
+## License and credit
+
+mm-track is a fork of motile-tracker, now called [napari-track-edit](https://github.com/live-image-tracking-tools/napari-track-edit) and I'm very thankful for all the hard work going into that project. 
