@@ -76,7 +76,7 @@ all = [
 mm-track = "mm_track:napari.yaml"
 
 [project.urls]
-"Source" = "https://github.com/georgeoshardo/motile_tracker"
+"Source" = "https://github.com/georgeoshardo/mm-track"
 "Derived from" = "https://github.com/funkelab/motile_tracker"
 
 [project.scripts]
